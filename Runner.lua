@@ -1,88 +1,86 @@
+local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 
 local player = Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-local humanoid = character:WaitForChild("Humanoid")
 local camera = workspace.CurrentCamera
 
------------------------------------------------------------
--- PRO DEV EDITABLE SETTINGS
------------------------------------------------------------
-local SPRINT_SPEED = 28 -- Speed when sprinting
-local NORMAL_SPEED = 16 -- Normal speed
-local SPRINT_FOV = 90 -- FOV when sprinting
-local NORMAL_FOV = 70 -- Normal FOV
-local TWEEN_TIME = 0.3 -- Time in seconds for smooth transitions
-local SPRINT_KEY = Enum.KeyCode.LeftShift -- Key to hold for sprint (optional, button is main focus)
------------------------------------------------------------
+local normalSpeed
+local normalFOV
 
 local isSprinting = false
 
-local function setSprintState(active)
-	isSprinting = active
-	
-	local targetSpeed = active and SPRINT_SPEED or NORMAL_SPEED
-	local targetFOV = active and SPRINT_FOV or NORMAL_FOV
-	
-	humanoid.WalkSpeed = targetSpeed
-	
-	-- Tweak FOV smoothly
-	TweenService:Create(camera, TweenInfo.new(TWEEN_TIME, Enum.EasingStyle.Sine), {FieldOfView = targetFOV}):Play()
-end
+local SPEED_MULTIPLIER = 1.6
+local FOV_MULTIPLIER = 1.15
 
--- Function to handle character respawn
-player.CharacterAdded:Connect(function(newCharacter)
-	character = newCharacter
-	humanoid = newCharacter:WaitForChild("Humanoid")
-end)
-
--- GUI creation
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "DeadRailsSprintGui"
-screenGui.ResetOnSpawn = false
-screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-screenGui.Parent = player:WaitForChild("PlayerGui")
+screenGui.Parent = CoreGui
 
 local mainButton = Instance.new("ImageButton")
 mainButton.Name = "SprintButton"
 mainButton.Size = UDim2.new(0, 45, 0, 45)
-
--- FIXED POSITION: Just above and to the left of the jump button (based on your image)
--- Position: 90% across, 85% down
-mainButton.Position = UDim2.new(1, -90, 1, -110) 
-
+mainButton.Position = UDim2.new(0.5, -22.5, 1, -80)
 mainButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 mainButton.BackgroundTransparency = 0.4
-mainButton.Image = "rbxassetid://12809185125" -- A run icon (feel free to change)
+mainButton.Image = "rbxassetid://12809185125"
 mainButton.ImageColor3 = Color3.fromRGB(255, 255, 255)
 mainButton.Parent = screenGui
 
 local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(1, 0) -- Circle
+corner.CornerRadius = UDim.new(1, 0)
 corner.Parent = mainButton
 
 local stroke = Instance.new("UIStroke")
-stroke.Color = Color3.fromRGB(255, 255, 255)
+stroke.Color = Color3.fromRGB(255, 0, 0)
 stroke.Thickness = 2
 stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+stroke.Transparency = 0.2
 stroke.Parent = mainButton
 
--- Event connections
-mainButton.MouseButton1Click:Connect(function()
-	setSprintState(not isSprinting)
+local function getSpeedAndFov()
+    local character = player.Character or player.CharacterAdded:Wait()
+    local humanoid = character:WaitForChild("Humanoid")
+    normalSpeed = humanoid.WalkSpeed
+    normalFOV = camera.FieldOfView
+end
+
+player.CharacterAdded:Connect(getSpeedAndFov)
+getSpeedAndFov()
+
+local function applySprint(active)
+    isSprinting = active
+
+    local character = player.Character
+    if not character then return end
+    local humanoid = character:FindFirstChild("Humanoid")
+    if not humanoid then return end
+
+    local targetSpeed = active and (normalSpeed * SPEED_MULTIPLIER) or normalSpeed
+    local targetFOV = active and (normalFOV * FOV_MULTIPLIER) or normalFOV
+    local targetStrokeColor = active and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
+
+    humanoid.WalkSpeed = targetSpeed
+
+    TweenService:Create(camera, TweenInfo.new(0.3, Enum.EasingStyle.Sine), {FieldOfView = targetFOV}):Play()
+    TweenService:Create(stroke, TweenInfo.new(0.2, Enum.EasingStyle.Sine), {Color = targetStrokeColor}):Play()
+    TweenService:Create(mainButton, TweenInfo.new(0.2, Enum.EasingStyle.Sine), {BackgroundTransparency = active and 0.2 or 0.4}):Play()
+end
+
+mainButton.MouseButton1Down:Connect(function()
+    applySprint(not isSprinting)
 end)
 
 UserInputService.InputBegan:Connect(function(input, processed)
-	if processed then return end
-	if input.KeyCode == SPRINT_KEY then
-		setSprintState(true)
-	end
+    if processed then return end
+    if input.KeyCode == Enum.KeyCode.LeftShift then
+        applySprint(true)
+    end
 end)
 
 UserInputService.InputEnded:Connect(function(input)
-	if input.KeyCode == SPRINT_KEY then
-		setSprintState(false)
-	end
+    if input.KeyCode == Enum.KeyCode.LeftShift then
+        applySprint(false)
+    end
 end)
