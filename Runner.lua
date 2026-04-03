@@ -12,7 +12,7 @@ local normalFOV
 local isSprinting = false
 
 local SPEED_MULTIPLIER = 1.6
-local FOV_MULTIPLIER = 1.15
+-- Removi a variável FOV_MULTIPLIER já que agora usaremos o valor fixo de 120
 
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "DeadRailsSprintGui"
@@ -50,7 +50,6 @@ stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 stroke.Transparency = 0.2
 stroke.Parent = mainButton
 
--- O RESTO DO SEU SCRIPT CONTINUA EXATAMENTE IGUAL DAQUI PARA BAIXO --
 local function getSpeedAndFov()
     local character = player.Character or player.CharacterAdded:Wait()
     local humanoid = character:WaitForChild("Humanoid")
@@ -70,7 +69,10 @@ local function applySprint(active)
     if not humanoid then return end
 
     local targetSpeed = active and (normalSpeed * SPEED_MULTIPLIER) or normalSpeed
-    local targetFOV = active and (normalFOV * FOV_MULTIPLIER) or normalFOV
+    
+    -- MODIFICAÇÃO AQUI: Se estiver correndo, vai para 120. Se parar, volta ao normalFOV.
+    local targetFOV = active and 120 or normalFOV
+    
     local targetStrokeColor = active and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
 
     humanoid.WalkSpeed = targetSpeed
