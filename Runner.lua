@@ -8,16 +8,17 @@ local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
 
 local normalSpeed
-local normalFOV = 70 -- Valor padrão seguro caso não consiga ler a tempo
+local normalFOV
 
 local isSprinting = false
-local heartbeatConnection = nil -- Guardar a conexão para poder desligar
 
-local SPEED_MULTIPLIER = 1.6
-local SPRINT_FOV = 120 -- Definido o FOV exato que você pediu
+-- Ajustes solicitados
+local SPRINT_SPEED = 40 -- Velocidade exata de 40
+local SPRINT_FOV = 120 -- FOV exato de 120
 
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "DeadRailsSprintGui"
+screenGui.ResetOnSpawn = false -- Garante que a interface não suma ao morrer
 
 -- [AVISO]: Se você estiver usando isso em um jogo próprio publicado no Roblox,
 -- mude para: screenGui.Parent = player:WaitForChild("PlayerGui")
@@ -25,14 +26,9 @@ screenGui.Parent = CoreGui
 
 local mainButton = Instance.new("ImageButton")
 mainButton.Name = "SprintButton"
-
--- AJUSTE DE POSIÇÃO PARA FICAR AO LADO DO JUMP
 mainButton.Size = UDim2.new(0, 50, 0, 50) 
 mainButton.AnchorPoint = Vector2.new(1, 1) 
-
--- X = 83% da tela para a esquerda, Y = 83% da tela para baixo. 
 mainButton.Position = UDim2.new(0.83, 0, 0.83, 0) 
-
 mainButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 mainButton.BackgroundTransparency = 0.4
 mainButton.Image = "rbxassetid://12809185125"
@@ -50,18 +46,31 @@ stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 stroke.Transparency = 0.2
 stroke.Parent = mainButton
 
+-- Função para capturar os valores originais do jogo
 local function getSpeedAndFov()
     local character = player.Character or player.CharacterAdded:Wait()
     local humanoid = character:WaitForChild("Humanoid")
-    normalSpeed = humanoid.WalkSpeed
-    -- Salva o FOV original do jogo apenas se não estivermos correndo
-    if not isSprinting then
+    
+    -- Só salva a velocidade normal se ela não for a velocidade de sprint
+    if humanoid.WalkSpeed ~= SPRINT_SPEED then
+        normalSpeed = humanoid.WalkSpeed
+    end
+    
+    -- Só salva o FOV normal se ele não for o de sprint
+    if camera.FieldOfView ~= SPRINT_FOV then
         normalFOV = camera.FieldOfView
     end
 end
 
 player.CharacterAdded:Connect(getSpeedAndFov)
 getSpeedAndFov()
+
+-- LOGICA DO HEARTBEAT: Trava o FOV sem piscar enquanto estiver correndo
+RunService.Heartbeat:Connect(function()
+    if isSprinting then
+        camera.FieldOfView = SPRINT_FOV
+    end
+end)
 
 local function applySprint(active)
     isSprinting = active
@@ -71,50 +80,34 @@ local function applySprint(active)
     local humanoid = character:FindFirstChild("Humanoid")
     if not humanoid then return end
 
-    local targetSpeed = active and (normalSpeed * SPEED_MULTIPLIER) or normalSpeed
+    -- Se desativar, puxa o padrão do jogo novamente caso tenha mudado
+    if not active then
+        getSpeedAndFov()
+    end
+
+    local targetSpeed = active and SPRINT_SPEED or normalSpeed
     local targetStrokeColor = active and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
 
     humanoid.WalkSpeed = targetSpeed
 
-    -- Gerenciamento do Heartbeat para travar o FOV sem piscar
-    if active then
-        -- Se já houver uma conexão antiga, desliga por segurança
-        if heartbeatConnection then heartbeatConnection:Disconnect() end
-        
-        -- Força o FOV em 120 a cada microssegundo (vence outros scripts do jogo)
-        heartbeatConnection = RunService.Heartbeat:Connect(function()
-            camera.FieldOfView = SPRINT_FOV
-        end)
-    else
-        -- Quando para de correr, desliga o "forçador" de FOV
-        if heartbeatConnection then
-            heartbeatConnection:Disconnect()
-            heartbeatConnection = nil
-        end
-        -- Suavemente devolve o FOV para o padrão do jogo
+    -- Se não estiver correndo, faz a transição suave de volta para o FOV original
+    if not active then
         TweenService:Create(camera, TweenInfo.new(0.3, Enum.EasingStyle.Sine), {FieldOfView = normalFOV}):Play()
     end
-
-    -- Tweens visuais do botão
+    
     TweenService:Create(stroke, TweenInfo.new(0.2, Enum.EasingStyle.Sine), {Color = targetStrokeColor}):Play()
     TweenService:Create(mainButton, TweenInfo.new(0.2, Enum.EasingStyle.Sine), {BackgroundTransparency = active and 0.2 or 0.4}):Play()
 end
 
--- Ativa/Desativa no clique do botão mobile
+-- Mobile
 mainButton.MouseButton1Down:Connect(function()
     applySprint(not isSprinting)
 end)
 
--- Tecla Shift (PC)
+-- PC (Shift ativa/desativa como alternador para combinar com o botão mobile)
 UserInputService.InputBegan:Connect(function(input, processed)
     if processed then return end
     if input.KeyCode == Enum.KeyCode.LeftShift then
-        applySprint(true)
-    end
-end)
-
-UserInputService.InputEnded:Connect(function(input)
-    if input.KeyCode == Enum.KeyCode.LeftShift then
-        applySprint(false)
+        applySprint(not isSprinting)
     end
 end)
