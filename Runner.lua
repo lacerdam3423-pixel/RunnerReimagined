@@ -16,12 +16,23 @@ local FOV_MULTIPLIER = 1.15
 
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "DeadRailsSprintGui"
-screenGui.Parent = CoreGui
+
+-- [AVISO]: Se você estiver usando isso em um jogo próprio publicado no Roblox,
+-- mude para: screenGui.Parent = player:WaitForChild("PlayerGui")
+-- O CoreGui só aceita novos elementos em exploits ou jogos específicos.
+screenGui.Parent = CoreGui 
 
 local mainButton = Instance.new("ImageButton")
 mainButton.Name = "SprintButton"
-mainButton.Size = UDim2.new(0, 45, 0, 45)
-mainButton.Position = UDim2.new(0.5, -23, 1, -80)
+
+-- AJUSTE DE POSIÇÃO PARA FICAR AO LADO DO JUMP
+mainButton.Size = UDim2.new(0, 50, 0, 50) -- Tamanho um pouco maior para ficar harmônico
+mainButton.AnchorPoint = Vector2.new(1, 1) -- Fixa a ponta de arraste no canto inferior direito do botão
+
+-- X = 85% da tela para a esquerda, Y = 83% da tela para baixo. 
+-- Isso coloca ele perfeitamente do lado esquerdo do pulo na maioria das resoluções.
+mainButton.Position = UDim2.new(0.83, 0, 0.83, 0) 
+
 mainButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 mainButton.BackgroundTransparency = 0.4
 mainButton.Image = "rbxassetid://12809185125"
@@ -39,6 +50,7 @@ stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 stroke.Transparency = 0.2
 stroke.Parent = mainButton
 
+-- O RESTO DO SEU SCRIPT CONTINUA EXATAMENTE IGUAL DAQUI PARA BAIXO --
 local function getSpeedAndFov()
     local character = player.Character or player.CharacterAdded:Wait()
     local humanoid = character:WaitForChild("Humanoid")
