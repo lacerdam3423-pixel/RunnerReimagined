@@ -1,7 +1,7 @@
 --[[
-    Mayura Engine - Custom Shiftlock & Sprint System (FIXED)
+    Mayura Engine - Custom Shiftlock & Sprint System (V3 - OFFSET REAL)
     Criado para: MigMax
-    Focado em: Mobile sem lag, sem bugs de camera.
+    Focado em: Mobile sem lag, câmera travada para a esquerda.
 --]]
 
 local Players = game:GetService("Players")
@@ -31,8 +31,8 @@ ScreenGui.Parent = parentGui
 -- Botão de Shiftlock (Estilo Obby - Canto Esquerdo)
 local ShiftlockBtn = Instance.new("ImageButton")
 ShiftlockBtn.Name = "ShiftlockButton"
-ShiftlockBtn.Size = UDim2.new(0, 40, 0, 40) -- Pequeno
-ShiftlockBtn.Position = UDim2.new(0, 15, 0.5, -20) -- Esquerda
+ShiftlockBtn.Size = UDim2.new(0, 40, 0, 40) 
+ShiftlockBtn.Position = UDim2.new(0, 15, 0.5, -20) 
 ShiftlockBtn.BackgroundTransparency = 0.5
 ShiftlockBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 ShiftlockBtn.Image = "rbxassetid://12121703248" 
@@ -46,8 +46,8 @@ UICorner.Parent = ShiftlockBtn
 -- Botão de Correr (Canto Superior Direito)
 local SprintBtn = Instance.new("TextButton")
 SprintBtn.Name = "SprintButton"
-SprintBtn.Size = UDim2.new(0, 45, 0, 25) -- Super pequeno
-SprintBtn.Position = UDim2.new(1, -60, 0, 15) -- Superior direito
+SprintBtn.Size = UDim2.new(0, 45, 0, 25) 
+SprintBtn.Position = UDim2.new(1, -60, 0, 15) 
 SprintBtn.BackgroundTransparency = 0.4
 SprintBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 SprintBtn.Text = "RUN"
@@ -66,7 +66,7 @@ Crosshair.Name = "GrannyCrosshair"
 Crosshair.Size = UDim2.new(0, 16, 0, 16)
 Crosshair.Position = UDim2.new(0.5, -8, 0.5, -8)
 Crosshair.BackgroundTransparency = 1
-Crosshair.Image = "rbxassetid://135417315" -- Mira clássica
+Crosshair.Image = "rbxassetid://135417315" 
 Crosshair.ImageColor3 = Color3.fromRGB(255, 0, 0)
 Crosshair.Visible = false
 Crosshair.Parent = ScreenGui
@@ -80,6 +80,7 @@ local CFG = {
     SprintSpeed = 40,
     NormalFOV = 70,
     SprintFOV = 111,
+    ShiftlockOffset = Vector3.new(2.5, 1.5, 0) -- Quanto maior o primeiro número, mais pra esquerda o boneco fica.
 }
 
 local shiftLockAtivo = false
@@ -100,7 +101,7 @@ local function AlternarSprint(ativar)
         correndo = true
         humanoid.WalkSpeed = CFG.SprintSpeed
         camera.FieldOfView = CFG.SprintFOV
-        SprintBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50) -- Alerta de corrida
+        SprintBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50) 
     else
         correndo = false
         humanoid.WalkSpeed = CFG.NormalSpeed
@@ -113,22 +114,21 @@ SprintBtn.MouseButton1Click:Connect(function()
     AlternarSprint(not correndo)
 end)
 
-
 -- ==========================================================
--- [4] SISTEMA DE SHIFTLOCK (ABSOLUTO PARA MOBILE)
+-- [4] SISTEMA DE SHIFTLOCK (EFEITO DE LADO - ATUALIZADO)
 -- ==========================================================
 local function AlternarShiftlock(ativar)
     local character = player.Character
     local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+    local camera = workspace.CurrentCamera
     
     if ativar then
         shiftLockAtivo = true
         Crosshair.Visible = true
         ShiftlockBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
         
-        -- Modo de câmera que trava o corpo
         if humanoid then
-            humanoid.AutoRotate = false -- Personagem não gira sozinho
+            humanoid.AutoRotate = false -- Trava a rotação padrão
         end
     else
         shiftLockAtivo = false
@@ -136,7 +136,10 @@ local function AlternarShiftlock(ativar)
         ShiftlockBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
         
         if humanoid then
-            humanoid.AutoRotate = true -- Volta ao normal
+            humanoid.AutoRotate = true 
+        end
+        if camera then
+            camera.CameraOffset = Vector3.new(0,0,0) -- Reseta a câmera
         end
     end
 end
@@ -146,7 +149,7 @@ ShiftlockBtn.MouseButton1Click:Connect(function()
 end)
 
 -- ==========================================================
--- [5] HEARTBEAT LOOP (O SEGREDO DO "SEM LAG" E "SEM PISCAR")
+-- [5] HEARTBEAT LOOP (SEM LAG, SEM PISCAR, ULTRA OTIMIZADO)
 -- ==========================================================
 RunService.Heartbeat:Connect(function()
     local character = player.Character
@@ -155,7 +158,7 @@ RunService.Heartbeat:Connect(function()
     local rootPart = character:FindFirstChild("HumanoidRootPart")
     local camera = workspace.CurrentCamera
     
-    -- Ajuste constante do FOV para evitar que o jogo tente resetar
+    -- Força o FOV e Velocidade (Evita que o jogo resete)
     if camera then
         if correndo and camera.FieldOfView ~= CFG.SprintFOV then
             camera.FieldOfView = CFG.SprintFOV
@@ -164,7 +167,6 @@ RunService.Heartbeat:Connect(function()
         end
     end
 
-    -- Ajuste constante da Velocidade
     if humanoid then
         if correndo and humanoid.WalkSpeed ~= CFG.SprintSpeed then
             humanoid.WalkSpeed = CFG.SprintSpeed
@@ -173,13 +175,16 @@ RunService.Heartbeat:Connect(function()
         end
     end
 
-    -- Mecânica de trava de rotação do Shiftlock
+    -- Mecânica de trava de rotação e Câmera de Lado
     if shiftLockAtivo and rootPart and camera then
+        -- Joga a câmera para o lado usando interpolação suave (sem piscar)
+        camera.CameraOffset = camera.CameraOffset:Lerp(CFG.ShiftlockOffset, 0.2)
+        
+        -- Faz o corpo olhar rigorosamente para a frente da câmera
         local lookVector = camera.CFrame.LookVector
-        -- Faz o corpo acompanhar a mira horizontal perfeitamente
         local targetRotation = math.atan2(-lookVector.X, -lookVector.Z)
         rootPart.CFrame = CFrame.new(rootPart.Position) * CFrame.Angles(0, targetRotation, 0)
     end
 end)
 
-print("Mayura Engine atualizada e funcionando!")
+print("Mayura Engine V3 - Shiftlock de Lado Aplicado!")
