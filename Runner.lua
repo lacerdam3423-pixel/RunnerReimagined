@@ -7,28 +7,26 @@ local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
 
+-- CONFIGURAÇÕES EXIGIDAS
+local TARGET_FOV = 120
+local SPEED_MULTIPLIER = 1.6 -- Multiplicador original do seu script (Velocidade base * 1.6)
+
 local isSprinting = false
 local shiftLockActive = false
 
--- Configurações pedidas
-local SPRINT_FOV = 120
-local SPRINT_SPEED = 40
-
--- Guardam os valores originais dinamicamente
-local originalSpeed = 16
-local originalFOV = 70
-
+-- Interface Principal
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "CustomSprintAndLockGui"
+screenGui.Name = "CustomObbyGui"
 screenGui.ResetOnSpawn = false
-screenGui.Parent = CoreGui 
+-- Usando PlayerGui para evitar problemas de permissão, mas você pode mudar para CoreGui se for exploit.
+screenGui.Parent = player:WaitForChild("PlayerGui") 
 
------------------------------------------
--- 1. CROSSHAIR (MIRA NO MEIO DA TELA) --
------------------------------------------
+-------------------------------------------------------------------
+-- 1. CROSSHAIR ESTILO GRANNY (PONTINHO NO MEIO)
+-------------------------------------------------------------------
 local crosshair = Instance.new("Frame")
-crosshair.Name = "GrannyDot"
-crosshair.Size = UDim2.new(0, 4, 0, 4) -- Pontinho pequeno estilo Granny
+crosshair.Name = "Crosshair"
+crosshair.Size = UDim2.new(0, 5, 0, 5) -- Pontinho pequeno
 crosshair.Position = UDim2.new(0.5, 0, 0.5, 0)
 crosshair.AnchorPoint = Vector2.new(0.5, 0.5)
 crosshair.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
@@ -39,174 +37,140 @@ local chCorner = Instance.new("UICorner")
 chCorner.CornerRadius = UDim.new(1, 0)
 chCorner.Parent = crosshair
 
------------------------------------------
--- 2. BOTÃO DE CORRER (SPRINT) --------
------------------------------------------
-local mainButton = Instance.new("ImageButton")
-mainButton.Name = "SprintButton"
-mainButton.Size = UDim2.new(0, 50, 0, 50)
-mainButton.AnchorPoint = Vector2.new(1, 1)
-mainButton.Position = UDim2.new(0.83, 0, 0.83, 0) 
-mainButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-mainButton.BackgroundTransparency = 0.4
-mainButton.Image = "rbxassetid://12809185125"
-mainButton.ImageColor3 = Color3.fromRGB(255, 255, 255)
-mainButton.Parent = screenGui
+-- Borda preta fina para dar contraste
+local chStroke = Instance.new("UIStroke")
+chStroke.Color = Color3.fromRGB(0, 0, 0)
+chStroke.Thickness = 1
+chStroke.Parent = crosshair
 
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(1, 0)
-corner.Parent = mainButton
+-------------------------------------------------------------------
+-- 2. BOTÃO DE CORRER (REPOSICIONADO)
+-------------------------------------------------------------------
+local sprintButton = Instance.new("ImageButton")
+sprintButton.Name = "SprintButton"
+sprintButton.Size = UDim2.new(0, 50, 0, 50)
+sprintButton.AnchorPoint = Vector2.new(1, 1)
+sprintButton.Position = UDim2.new(0.83, 0, 0.83, 0) 
+sprintButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+sprintButton.BackgroundTransparency = 0.4
+sprintButton.Image = "rbxassetid://12809185125"
+sprintButton.ImageColor3 = Color3.fromRGB(255, 255, 255)
+sprintButton.Parent = screenGui
 
-local stroke = Instance.new("UIStroke")
-stroke.Color = Color3.fromRGB(255, 0, 0)
-stroke.Thickness = 2
-stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-stroke.Transparency = 0.2
-stroke.Parent = mainButton
+local cornerSprint = Instance.new("UICorner")
+cornerSprint.CornerRadius = UDim.new(1, 0)
+cornerSprint.Parent = sprintButton
 
------------------------------------------
--- 3. BOTÃO DE CADEADO (SHIFTLOCK) ----
------------------------------------------
+local strokeSprint = Instance.new("UIStroke")
+strokeSprint.Color = Color3.fromRGB(255, 0, 0)
+strokeSprint.Thickness = 2
+strokeSprint.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+strokeSprint.Parent = sprintButton
+
+-------------------------------------------------------------------
+-- 3. BOTÃO DE SHIFTLOCK (CADEADO)
+-------------------------------------------------------------------
 local lockButton = Instance.new("ImageButton")
 lockButton.Name = "ShiftLockButton"
-lockButton.Size = UDim2.new(0, 35, 0, 35) -- Botão pequeno
+lockButton.Size = UDim2.new(0, 40, 0, 40) -- Botão pequeno
 lockButton.AnchorPoint = Vector2.new(1, 1)
--- Posicionado um pouco acima do botão de sprint
-lockButton.Position = UDim2.new(0.83, 0, 0.73, 0) 
+lockButton.Position = UDim2.new(0.75, 0, 0.83, 0) -- Fica ao lado do botão de correr
 lockButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 lockButton.BackgroundTransparency = 0.4
-lockButton.Image = "rbxassetid://5400181533" -- Ícone de cadeado
+-- Ícone de cadeado aberto (Padrão)
+lockButton.Image = "rbxassetid://5404113115" 
 lockButton.ImageColor3 = Color3.fromRGB(255, 255, 255)
 lockButton.Parent = screenGui
 
-local lockCorner = Instance.new("UICorner")
-lockCorner.CornerRadius = UDim.new(1, 0)
-lockCorner.Parent = lockButton
+local cornerLock = Instance.new("UICorner")
+cornerLock.CornerRadius = UDim.new(1, 0)
+cornerLock.Parent = lockButton
 
-local lockStroke = Instance.new("UIStroke")
-lockStroke.Color = Color3.fromRGB(255, 255, 255)
-lockStroke.Thickness = 1.5
-lockStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-lockStroke.Transparency = 0.3
-lockStroke.Parent = lockButton
+local strokeLock = Instance.new("UIStroke")
+strokeLock.Color = Color3.fromRGB(255, 255, 255)
+strokeLock.Thickness = 2
+strokeLock.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+strokeLock.Parent = lockButton
 
------------------------------------------
--- 4. LÓGICA DE VELOCIDADE E FOV --------
------------------------------------------
-
--- Pega os valores reais do jogo dinamicamente
-local function updateOriginalValues()
-    local character = player.Character or player.CharacterAdded:Wait()
-    local humanoid = character:WaitForChild("Humanoid")
-    
-    if not isSprinting then
-        originalSpeed = humanoid.WalkSpeed
-        originalFOV = camera.FieldOfView
-    end
-end
-
--- Hook para atualizar sempre que o personagem spawnar
-player.CharacterAdded:Connect(function()
-    task.wait(1)
-    updateOriginalValues()
-end)
-updateOriginalValues()
-
--- Aplica a corrida
-local function applySprint(active)
-    local character = player.Character
-    if not character then return end
-    local humanoid = character:FindFirstChild("Humanoid")
-    if not humanoid then return end
-
-    isSprinting = active
-
-    if active then
-        -- Salva o atual antes de mudar para garantir que sabemos o padrão do jogo
-        originalSpeed = humanoid.WalkSpeed
-        humanoid.WalkSpeed = SPRINT_SPEED
-        
-        TweenService:Create(stroke, TweenInfo.new(0.2, Enum.EasingStyle.Sine), {Color = Color3.fromRGB(0, 255, 0)}):Play()
-        TweenService:Create(mainButton, TweenInfo.new(0.2, Enum.EasingStyle.Sine), {BackgroundTransparency = 0.2}):Play()
-    else
-        humanoid.WalkSpeed = originalSpeed
-        
-        TweenService:Create(stroke, TweenInfo.new(0.2, Enum.EasingStyle.Sine), {Color = Color3.fromRGB(255, 0, 0)}):Play()
-        TweenService:Create(mainButton, TweenInfo.new(0.2, Enum.EasingStyle.Sine), {BackgroundTransparency = 0.4}):Play()
-    end
-end
-
--- EXECUÇÃO EM HEARTBEAT (Não deixa o FOV piscar nem voltar)
-RunService.RenderStepped:Connect(function()
-    if isSprinting then
-        camera.FieldOfView = SPRINT_FOV
-    end
-end)
-
--- Controles de clique e teclado para Sprint
-mainButton.MouseButton1Down:Connect(function()
-    applySprint(not isSprinting)
-end)
-
-UserInputService.InputBegan:Connect(function(input, processed)
-    if processed then return end
-    if input.KeyCode == Enum.KeyCode.LeftShift then
-        applySprint(true)
-    end
-end)
-
-UserInputService.InputEnded:Connect(function(input)
-    if input.KeyCode == Enum.KeyCode.LeftShift then
-        applySprint(false)
-    end
-end)
-
------------------------------------------
--- 5. LÓGICA DO SHIFTLOCK (OBBY REAL) ---
------------------------------------------
-
+-------------------------------------------------------------------
+-- LÓGICA DO SHIFTLOCK REAL (MOBILE E PC)
+-------------------------------------------------------------------
 local function setShiftLock(active)
     shiftLockActive = active
-    local character = player.Character
-    if not character then return end
-    local humanoid = character:FindFirstChild("Humanoid")
     
     if active then
-        -- Câmera para a DIREITA, Jogador para a ESQUERDA (Offset)
-        humanoid.CameraOffset = Vector3.new(2.5, 0.5, 0)
+        lockButton.Image = "rbxassetid://5404113426" -- Cadeado Trancado
+        lockButton.ImageColor3 = Color3.fromRGB(255, 0, 0)
         UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
-        lockButton.ImageColor3 = Color3.fromRGB(0, 255, 0) -- Verde ativo
     else
-        humanoid.CameraOffset = Vector3.new(0, 0, 0)
-        UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+        lockButton.Image = "rbxassetid://5404113115" -- Cadeado Aberto
         lockButton.ImageColor3 = Color3.fromRGB(255, 255, 255)
+        UserInputService.MouseBehavior = Enum.MouseBehavior.Default
     end
 end
 
--- Botão Mobile/Clique
-lockButton.MouseButton1Down:Connect(function()
+lockButton.MouseButton1Click:Connect(function()
     setShiftLock(not shiftLockActive)
 end)
 
--- Tecla Shift Direito ou Control para travar no PC
+-- Tecla Shift no PC ativa o ShiftLock (Estilo Obby clássico)
 UserInputService.InputBegan:Connect(function(input, processed)
     if processed then return end
-    if input.KeyCode == Enum.KeyCode.LeftControl or input.KeyCode == Enum.KeyCode.RightShift then
+    if input.KeyCode == Enum.KeyCode.LeftShift then
         setShiftLock(not shiftLockActive)
     end
 end)
 
--- Mantém o ShiftLock ativo forçadamente a cada frame
-RunService.RenderStepped:Connect(function()
-    if shiftLockActive then
-        local character = player.Character
-        if character and character:FindFirstChild("HumanoidRootPart") then
+-------------------------------------------------------------------
+-- HEARTBEAT: FOV 120 SEM PISCAR, VELOCIDADE E SHIFTLOCK OFFSET
+-------------------------------------------------------------------
+RunService.Heartbeat:Connect(function()
+    local character = player.Character
+    if not character then return end
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    
+    if humanoid and hrp then
+        -- 1. Forçar FOV 120 Contínuo
+        camera.FieldOfView = TARGET_FOV
+        
+        -- 2. Lógica de Velocidade (Multiplicador do jogo do Dex)
+        -- Captura a velocidade atual que o jogo quer dar ao player
+        local baseSpeed = humanoid:GetAttribute("BaseSpeed") or 16 -- Fallback caso o jogo não defina
+        
+        if isSprinting then
+            humanoid.WalkSpeed = 40 -- Sua exigência de mudar a velocidade para 40
+        else
+            humanoid.WalkSpeed = baseSpeed -- Volta para o padrão do jogo
+        end
+
+        -- 3. Lógica do Shiftlock Real com Trava de Câmera
+        if shiftLockActive then
             UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
             
-            -- Faz o personagem olhar para onde a câmera aponta (Shiftlock real de Obby)
+            -- Faz o personagem olhar para onde a câmera aponta
             local lookVector = camera.CFrame.LookVector
-            local rootPart = character.HumanoidRootPart
-            rootPart.CFrame = CFrame.new(rootPart.Position, rootPart.Position + Vector3.new(lookVector.X, 0, lookVector.Z))
+            local targetRotation = math.atan2(-lookVector.X, -lookVector.Z)
+            hrp.CFrame = CFrame.new(hrp.Position) * CFrame.Angles(0, targetRotation, 0)
+            
+            -- OFFSET ESTILO OBBY: Câmera vai para a DIREITA e Player vai para a ESQUERDA
+            -- Movendo o foco da câmera ligeiramente para a direita
+            camera.CFrame = camera.CFrame * CFrame.new(1.5, 0.5, 0) 
         end
     end
+end)
+
+-------------------------------------------------------------------
+-- CONTROLE DO BOTÃO DE CORRER
+-------------------------------------------------------------------
+local function toggleSprint(active)
+    isSprinting = active
+    local targetStrokeColor = active and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
+    
+    TweenService:Create(strokeSprint, TweenInfo.new(0.2, Enum.EasingStyle.Sine), {Color = targetStrokeColor}):Play()
+    TweenService:Create(sprintButton, TweenInfo.new(0.2, Enum.EasingStyle.Sine), {BackgroundTransparency = active and 0.2 or 0.4}):Play()
+end
+
+sprintButton.MouseButton1Click:Connect(function()
+    toggleSprint(not isSprinting)
 end)
