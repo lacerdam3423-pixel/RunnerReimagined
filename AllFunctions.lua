@@ -1,166 +1,177 @@
--- Mayura Engine: Mobile Obby Shiftlock & Sprint
--- Criado por MigMax ;]
--- Super otimizado, sem lag e sem bugs.
+--[[
+    Criado por: MigMax ;]
+    Tema: Mayura Engine / Obby Utility
+    Foco: Mobile Otimizado (Sem Lag / Sem Bugs)
+--]]
 
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 
 local player = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
 
--- Aguarda o personagem carregar
-local character = player.Character or player.CharacterAdded:Wait()
-local humanoid = character:WaitForChild("Humanoid")
+-- ==========================================
+-- CONFIGURAÇÕES EDITÁVEIS
+-- ==========================================
+local CONFIG = {
+    SprintSpeed = 40,
+    NormalSpeed = 16,
+    CustomFOV = 111,
+    DefaultFOV = 70,
+    ShiftlockOffset = Vector3.new(1.7, 0, 0), -- Quão para a direita a câmera fica
+}
 
-player.CharacterAdded:Connect(function(char)
-	character = char
-	humanoid = char:WaitForChild("Humanoid")
-end)
-
--- Criação da GUI Principal (CoreGui falsa para evitar cliques acidentais)
+-- ==========================================
+-- CRIAÇÃO DA INTERFACE (CoreGui Seguro)
+-- ==========================================
 local sg = Instance.new("ScreenGui")
 sg.Name = "Mayura_ObbyEngine"
 sg.ResetOnSpawn = false
 sg.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
--- Tenta colocar no CoreGui, se não conseguir vai para o PlayerGui
-local success, err = pcall(function()
-	sg.Parent = game:GetService("CoreGui")
-end)
-if not success then sg.Parent = player:WaitForChild("PlayerGui") end
 
----------------------------------------------------------
--- 1. CROSSHAIR DA GRANNY (No centro da tela)
----------------------------------------------------------
+-- Tentativa de colocar no CoreGui (se o executor permitir), senão vai para PlayerGui
+local success, err = pcall(function()
+    sg.Parent = game:GetService("CoreGui")
+end)
+if not success then
+    sg.Parent = player:WaitForChild("PlayerGui")
+end
+
+-- Container no canto direito (Segura os botões)
+local container = Instance.new("Frame")
+container.Name = "RightContainer"
+container.Size = UDim2.new(0, 70, 0, 150)
+container.Position = UDim2.new(1, -80, 0.5, -75) -- Centro-direita da tela
+container.BackgroundTransparency = 1
+container.Parent = sg
+
+-- Botão de Shiftlock (Estilo Obby Tradicional)
+local shiftBtn = Instance.new("TextButton")
+shiftBtn.Name = "ShiftlockBtn"
+shiftBtn.Size = UDim2.new(0, 50, 0, 50)
+shiftBtn.Position = UDim2.new(0.5, -25, 0, 10)
+shiftBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+shiftBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+shiftBtn.Font = Enum.Font.SourceSansBold
+shiftBtn.TextSize = 14
+shiftBtn.Text = "SHIFT\nOFF"
+shiftBtn.Parent = container
+
+local shiftUICorner = Instance.new("UICorner")
+shiftUICorner.CornerRadius = UDim.new(0, 12)
+shiftUICorner.Parent = shiftBtn
+
+-- Botão de Correr (Sprint Dead Rails sem Stamina)
+local sprintBtn = Instance.new("TextButton")
+sprintBtn.Name = "SprintBtn"
+sprintBtn.Size = UDim2.new(0, 50, 0, 50)
+sprintBtn.Position = UDim2.new(0.5, -25, 0, 70)
+sprintBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+sprintBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+sprintBtn.Font = Enum.Font.SourceSansBold
+sprintBtn.TextSize = 14
+sprintBtn.Text = "RUN"
+sprintBtn.Parent = container
+
+local sprintUICorner = Instance.new("UICorner")
+sprintUICorner.CornerRadius = UDim.new(1, 0) -- Botão redondo
+sprintUICorner.Parent = sprintBtn
+
+-- Mira da Granny (Crosshair no centro)
 local crosshair = Instance.new("ImageLabel")
 crosshair.Name = "GrannyCrosshair"
+crosshair.Size = UDim2.new(0, 12, 0, 12)
+crosshair.Position = UDim2.new(0.5, -6, 0.5, -6)
 crosshair.BackgroundTransparency = 1
-crosshair.Position = UDim2.new(0.5, -10, 0.5, -10) -- Perfeitamente centralizado
-crosshair.Size = UDim2.new(0, 20, 0, 20) -- Tamanho pequeno
-crosshair.Image = "rbxassetid://6341257965" -- ID clássico do ponto da Granny
+crosshair.Image = "rbxassetid://625400912" -- ID clássico de mira circular (Estilo Granny)
 crosshair.ImageColor3 = Color3.fromRGB(255, 255, 255)
-crosshair.Visible = false
+crosshair.Visible = false -- Só aparece no Shiftlock
 crosshair.Parent = sg
 
----------------------------------------------------------
--- CONTÊINER DOS BOTÕES (Canto direito superior, pequenos)
----------------------------------------------------------
-local buttonContainer = Instance.new("Frame")
-buttonContainer.Name = "ControlContainer"
-buttonContainer.BackgroundTransparency = 1
-buttonContainer.Position = UDim2.new(1, -120, 0, 40) -- Canto superior direito
-buttonContainer.Size = UDim2.new(0, 100, 0, 100)
-buttonContainer.Parent = sg
+-- ==========================================
+-- SISTEMAS E LÓGICA
+-- ==========================================
 
-local layout = Instance.new("UIListLayout")
-layout.FillDirection = Enum.FillDirection.Vertical
-layout.HorizontalAlignment = Enum.HorizontalAlignment.Right
-layout.VerticalAlignment = Enum.VerticalAlignment.Top
-layout.Padding = UDim.new(0, 5)
-layout.Parent = buttonContainer
+local isShiftlock = false
+local isSprinting = false
 
-local function createMiniButton(name, text, color)
-	local btn = Instance.new("TextButton")
-	btn.Name = name
-	btn.Size = UDim2.new(0, 70, 0, 30) -- Pequeno
-	btn.BackgroundColor3 = color
-	btn.BackgroundTransparency = 0.3
-	btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-	btn.Text = text
-	btn.Font = Enum.Font.GothamBold
-	btn.TextSize = 11
-	btn.AutoButtonColor = true
-
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 6)
-	corner.Parent = btn
-
-	local stroke = Instance.new("UIStroke")
-	stroke.Thickness = 1
-	stroke.Color = Color3.fromRGB(255, 255, 255)
-	stroke.Transparency = 0.5
-	stroke.Parent = btn
-
-	return btn
+-- Função do Shiftlock Real
+local function updateShiftlock()
+    local character = player.Character
+    if character and character:FindFirstChild("HumanoidRootPart") and character:FindFirstChildOfClass("Humanoid") then
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        
+        if isShiftlock then
+            -- Força o personagem a olhar para onde a câmera aponta
+            humanoid.AutoRotate = false
+            local lookVector = camera.CFrame.LookVector
+            local targetCFrame = CFrame.new(character.HumanoidRootPart.Position, character.HumanoidRootPart.Position + Vector3.new(lookVector.X, 0, lookVector.Z))
+            character.HumanoidRootPart.CFrame = targetCFrame
+            
+            -- Desvia a câmera levemente para o lado
+            camera.CFrame = camera.CFrame * CFrame.new(CONFIG.ShiftlockOffset)
+            
+            -- Mantém o FOV ativo no Shiftlock
+            camera.FieldOfView = CONFIG.CustomFOV
+        else
+            humanoid.AutoRotate = true
+        end
+    end
 end
 
----------------------------------------------------------
--- 2. SISTEMA DE SHIFTLOCK (Obby Estilo)
----------------------------------------------------------
-local lockBtn = createMiniButton("ShiftlockBtn", "LOCK: OFF", Color3.fromRGB(200, 50, 50))
-lockBtn.Parent = buttonContainer
-
-local isLocked = false
-local defaultFov = 70
-local shiftlockFov = 111 -- Seu FOV desejado
-
-local function toggleShiftlock()
-	isLocked = not isLocked
-	crosshair.Visible = isLocked
-	
-	if isLocked then
-		lockBtn.Text = "LOCK: ON"
-		lockBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
-		camera.FieldOfView = shiftlockFov
-		UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
-	else
-		lockBtn.Text = "LOCK: OFF"
-		lockBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-		camera.FieldOfView = defaultFov
-		UserInputService.MouseBehavior = Enum.MouseBehavior.Default
-	end
-end
-
-lockBtn.MouseButton1Click:Connect(toggleShiftlock)
-
--- Heartbeat ultra rápido e sem piscar para travar a câmera e o corpo
-RunService.Heartbeat:Connect(function()
-	if isLocked and character and humanoid and humanoid.Health > 0 then
-		local hrp = character:FindFirstChild("HumanoidRootPart")
-		if hrp then
-			-- Faz o personagem olhar para onde a câmera aponta (Shiftlock real)
-			local lookAt = Vector3.new(camera.CFrame.LookVector.X, 0, camera.CFrame.LookVector.Z).Unit
-			if lookAt.Magnitude > 0 then
-				hrp.CFrame = CFrame.new(hrp.Position, hrp.Position + lookAt)
-			end
-			-- Garante que o mouse continue preso para não bugar
-			UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
-		end
-	end
+-- Alternador do Shiftlock
+shiftBtn.MouseButton1Click:Connect(function()
+    isShiftlock = not isShiftlock
+    if isShiftlock then
+        shiftBtn.Text = "SHIFT\nON"
+        shiftBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0) -- Verde
+        crosshair.Visible = true
+    else
+        shiftBtn.Text = "SHIFT\nOFF"
+        shiftBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40) -- Cinza
+        crosshair.Visible = false
+        camera.FieldOfView = CONFIG.DefaultFOV
+    end
 end)
 
----------------------------------------------------------
--- 3. SISTEMA DE SPRINT (Dead Rails Style - Sem Stamina)
----------------------------------------------------------
-local sprintBtn = createMiniButton("SprintBtn", "WALK", Color3.fromRGB(100, 100, 100))
-sprintBtn.Parent = buttonContainer
+-- Alternador do Sprint (Estilo Dead Rails)
+sprintBtn.MouseButton1Click:Connect(function()
+    local character = player.Character
+    if character and character:FindFirstChildOfClass("Humanoid") then
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        isSprinting = not isSprinting
+        
+        if isSprinting then
+            humanoid.WalkSpeed = CONFIG.SprintSpeed
+            sprintBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50) -- Verde correndo
+        else
+            humanoid.WalkSpeed = CONFIG.NormalSpeed
+            sprintBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50) -- Vermelho normal
+        end
+    end
+end)
 
-local isSprinting = false
-local normalSpeed = 16
-local sprintSpeed = 40
+-- Loop Heartbeat (Garante 0 flickers e atualização perfeita)
+RunService.Heartbeat:Connect(function()
+    if isShiftlock then
+        updateShiftlock()
+    end
+end)
 
-local function toggleSprint()
-	isSprinting = not isSprinting
-	if humanoid then
-		if isSprinting then
-			humanoid.WalkSpeed = sprintSpeed
-			sprintBtn.Text = "RUNNING"
-			sprintBtn.BackgroundColor3 = Color3.fromRGB(255, 170, 0)
-		else
-			humanoid.WalkSpeed = normalSpeed
-			sprintBtn.Text = "WALK"
-			sprintBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
-		end
-	end
-end
-
-sprintBtn.MouseButton1Click:Connect(toggleSprint)
-
--- Reseta velocidade ao morrer para evitar bugs
-player.CharacterAdded:Connect(function()
-	isSprinting = false
-	sprintBtn.Text = "WALK"
-	sprintBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
-	if isLocked then toggleShiftlock() end -- Reseta o lock ao morrer
+-- Resetador de estado ao morrer
+player.CharacterAdded:Connect(function(character)
+    isShiftlock = false
+    isSprinting = false
+    shiftBtn.Text = "SHIFT\nOFF"
+    shiftBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    crosshair.Visible = false
+    sprintBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    
+    local humanoid = character:WaitForChild("Humanoid", 5)
+    if humanoid then
+        humanoid.WalkSpeed = CONFIG.NormalSpeed
+    end
+    camera.FieldOfView = CONFIG.DefaultFOV
 end)
